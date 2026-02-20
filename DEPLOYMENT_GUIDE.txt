@@ -1,0 +1,178 @@
+═══════════════════════════════════════════════════════════════
+  DEPLOYMENT GUIDE — Hypersaline pH Buffer Calculator v1.3
+  From local Windows app → live public website on Railway
+═══════════════════════════════════════════════════════════════
+
+OVERVIEW
+────────
+Stack:  Flask + phreeqpython + Gunicorn + Docker → Railway
+Cost:   $0–5/month (Railway free tier covers low-traffic tools)
+Time:   ~30 minutes total
+
+The only code change from your local version is the PHREEQC
+library: phreeqpy (Windows DLL) → phreeqpython (Linux-native,
+bundles pitzer.dat automatically — no manual file copying needed).
+
+
+═══════════════════════════════════════════════════════════════
+STEP 1 — Install prerequisites (one time only)
+═══════════════════════════════════════════════════════════════
+
+1a. Install Git (if not already installed)
+    https://git-scm.com/download/win
+    → accept all defaults during install
+
+1b. Install Docker Desktop
+    https://www.docker.com/products/docker-desktop/
+    → required to test the container locally before deploying
+    → accept all defaults, restart when prompted
+
+1c. Create a free GitHub account (if you don't have one)
+    https://github.com/signup
+
+1d. Create a free Railway account
+    https://railway.app
+    → Sign up with GitHub (links them automatically)
+
+
+═══════════════════════════════════════════════════════════════
+STEP 2 — Create your GitHub repository
+═══════════════════════════════════════════════════════════════
+
+2a. Go to https://github.com/new
+    - Repository name: buffer-calculator  (or any name)
+    - Visibility: Public  (required for Railway free tier)
+    - Click "Create repository"
+
+2b. On your Windows machine, open a terminal in the folder
+    containing this zip file's contents (your app.py, etc.)
+
+    Then run:
+      git init
+      git add .
+      git commit -m "Initial deploy"
+      git branch -M main
+      git remote add origin https://github.com/STyX1980/HyperSalineBuffer.git
+      git push -u origin main
+
+    Replace YOURUSERNAME with your GitHub username.
+
+
+═══════════════════════════════════════════════════════════════
+STEP 3 — Test locally with Docker (optional but recommended)
+═══════════════════════════════════════════════════════════════
+
+In the project folder, run:
+
+  docker build -t buffer-calc .
+  docker run -p 8080:8080 buffer-calc
+
+Then open http://localhost:8080 in your browser.
+This confirms everything works in Linux before deploying.
+
+Press Ctrl+C to stop.
+
+
+═══════════════════════════════════════════════════════════════
+STEP 4 — Deploy to Railway
+═══════════════════════════════════════════════════════════════
+
+4a. Go to https://railway.app/new
+    → Click "Deploy from GitHub repo"
+    → Select your buffer-calculator repository
+    → Click "Deploy Now"
+
+4b. Railway will:
+    - Detect the Dockerfile automatically
+    - Build the container (~3-5 minutes first time)
+    - Deploy and give you a URL like:
+      https://buffer-calculator-production.up.railway.app
+
+4c. Click the URL — your calculator is live!
+
+
+═══════════════════════════════════════════════════════════════
+STEP 5 — Custom domain (optional)
+═══════════════════════════════════════════════════════════════
+
+Option A — Use a subdomain of your institution's site:
+  Ask your IT department to create a CNAME record:
+    tools.youruni.edu  →  your-railway-url.railway.app
+
+Option B — Buy a cheap domain (~$10/year):
+  1. Buy at namecheap.com or porkbun.com
+  2. In Railway: Settings → Domains → Add Custom Domain
+  3. Follow the DNS instructions Railway shows you
+  HTTPS is configured automatically (free Let's Encrypt cert)
+
+
+═══════════════════════════════════════════════════════════════
+STEP 6 — Adding future calculators (your multi-tool strategy)
+═══════════════════════════════════════════════════════════════
+
+Pattern for tools.mysite.com/buffer, tools.mysite.com/other:
+
+6a. Create a new GitHub repo for each tool (same structure)
+    OR add routes to this same repo:
+      @app.route('/buffer-calc')
+      @app.route('/alkalinity-calc')
+      etc.
+
+6b. For a shared homepage at tools.mysite.com:
+    Create an index route listing all your tools.
+    Each tool is a blueprint in Flask:
+      from flask import Blueprint
+      buffer_bp = Blueprint('buffer', __name__, url_prefix='/buffer')
+
+6c. One Railway project per standalone tool, OR one project
+    with multiple tools in one Flask app — both work fine.
+
+
+═══════════════════════════════════════════════════════════════
+UPDATING YOUR LIVE SITE
+═══════════════════════════════════════════════════════════════
+
+Any time you change code, just:
+  git add .
+  git commit -m "your change description"
+  git push
+
+Railway detects the push and automatically redeploys.
+Zero downtime rolling deployment.
+
+
+═══════════════════════════════════════════════════════════════
+DIFFERENCES FROM LOCAL VERSION
+═══════════════════════════════════════════════════════════════
+
+Local (Windows)          Production (Linux/Docker)
+─────────────────────────────────────────────────────────────
+phreeqpy (Windows DLL)   phreeqpython (Linux native)
+pitzer.dat manual copy   pitzer.dat bundled automatically
+python app.py            gunicorn (4 workers, concurrent)
+localhost:5000           public HTTPS URL
+single user              handles 100+ concurrent users
+
+The PHREEQC engine and pitzer.dat are identical — results
+are numerically equivalent.
+
+
+═══════════════════════════════════════════════════════════════
+TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════
+
+Build fails on Railway:
+  → Check Railway build logs (click the deployment → View logs)
+  → Usually a missing package — add it to requirements.txt
+
+"Application failed to respond":
+  → Check that PORT env var is used: Railway sets $PORT automatically
+  → railway.json already handles this
+
+Calculation errors on live site but works locally:
+  → Visit https://your-url.railway.app/debug for diagnostics
+  → Check that phreeqpython found pitzer.dat (shown in debug page)
+
+Need more compute (slow for many users):
+  → Scale workers in railway.json: change "4" to "8"
+  → Or upgrade Railway plan ($20/month for dedicated resources)
