@@ -1,0 +1,158 @@
+════════════════════════════════════════════════════════════════
+  Hypersaline pH Custom Buffer Calculator v1.3
+  Setup Guide — Windows 11
+════════════════════════════════════════════════════════════════
+
+WHAT YOU ARE INSTALLING
+  • Python 3.11  (runs the web server)
+  • Flask        (tiny web-server library, ~20 KB)
+  • phreeqpy     (Python wrapper that calls your IPhreeqc.dll)
+  Your IPhreeqc is already installed ✓
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1 — Install Python 3.11
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Go to:  https://www.python.org/downloads/
+2. Download Python 3.11.x (the yellow button)
+3. Run the installer
+   ⚠ TICK THIS BOX on the first screen:
+      ☑  "Add Python to PATH"       ← most common mistake!
+4. Click "Install Now"
+5. Verify: open Command Prompt (Win+R → cmd → Enter)
+   Type:   python --version
+   Expect: Python 3.11.x
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2 — Put the project files in a folder
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Create a folder, e.g.:   C:\BufferCalc\
+
+Extract the zip so you have:
+  C:\BufferCalc\
+    app.py
+    requirements.txt
+    SETUP_GUIDE.txt
+    templates\
+      index.html
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3 — Install Flask and phreeqpy (one command)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Open Command Prompt, navigate to your folder:
+  cd C:\BufferCalc
+
+Install everything:
+  pip install -r requirements.txt
+
+Done. You only need to do this once.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4 — Point to your IPhreeqc DLL (if needed)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+phreeqpy tries to find IPhreeqc.dll automatically.
+If Step 5 gives a DLL error:
+
+1. Find your IPhreeqc DLL. Common path:
+     C:\Program Files\USGS\IPhreeqc 3.x.x-xxxxx\bin\IPhreeqc.dll
+
+2. Open app.py in Notepad
+
+3. Find these lines inside the run_phreeqc() function:
+     # phreeqc_mod.IPhreeqc.IPHREEQC_DLL_PATH = (
+     #     r"C:\Program Files\USGS\IPhreeqc 3.7.3-15968\bin\IPhreeqc.dll"
+     # )
+
+4. Remove the # symbols and update the path:
+     phreeqc_mod.IPhreeqc.IPHREEQC_DLL_PATH = (
+         r"C:\Program Files\USGS\IPhreeqc 3.7.3-15968\bin\IPhreeqc.dll"
+     )
+
+5. Save the file.
+
+⚠ 32-bit vs 64-bit:
+  Python 64-bit  →  use IPhreeqc 64-bit DLL  (recommended)
+  Python 32-bit  →  use IPhreeqc 32-bit DLL
+  Mixing these will give a "DLL load failed" error.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5 — Run the calculator
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+In Command Prompt (in C:\BufferCalc):
+  python app.py
+
+You'll see:
+  ══════════════════════════════════════════════════════════════
+    Hypersaline pH Custom Buffer Calculator v1.3
+    Open your browser at:  http://localhost:5000
+  ══════════════════════════════════════════════════════════════
+
+Open your browser and go to:  http://localhost:5000
+
+To stop the server:  press Ctrl+C in Command Prompt.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHAT THE CALCULATOR DOES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Left panel — inputs:
+  • Sample composition (Na, K, Li, Mg, Ca, SO₄, B, Br in mg/L)
+  • Physical properties (density, TDS, initial pH)
+  • Titration setup (H₃BO₃, NaOH concentrations & volumes, steps)
+  • Salt hydration states (MgCl₂·6H₂O, CaCl₂·2H₂O, etc.)
+
+Right panel — results:
+  • pH titration curve chart
+  • B₄/B₃ boron ratio chart
+  • Ion concentrations in mmol/kgw
+  • Buffer recipe: each salt in mmol and g per kg water
+  • Full titration data table
+
+The simulation runs a 3-stage PHREEQC reaction sequence
+(exactly matching your Excel):
+  Stage 1 — dissolve brine ions into 1 kg pure water
+  Stage 2 — add H₃BO₃ spike
+  Stage 3 — NaOH titration in N steps
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+"python is not recognized"
+  → Re-install Python and tick "Add Python to PATH"
+
+"DLL load failed" or "IPhreeqc not found"
+  → Set the DLL path manually (see Step 4)
+  → Check 32/64-bit match
+
+"Port 5000 already in use"
+  → Change port=5000 to port=5001 at the bottom of app.py
+  → Then open http://localhost:5001
+
+"phreeqc.dat not found"
+  → Copy phreeqc.dat from your IPhreeqc installation folder
+    into C:\BufferCalc\
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FUTURE — Hosting online to share with colleagues
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+When you are happy with the local version:
+  • Rent a Linux VPS (Hetzner CX22 ~€4/mo, DigitalOcean $6/mo)
+  • IPhreeqc on Linux:  sudo apt install libiphreeqc-dev
+    or compile from source (straightforward with your C background)
+  • Deploy Flask with gunicorn + nginx (we can do this step together)
+
+Contact: paznativ@gmail.com
+════════════════════════════════════════════════════════════════

@@ -11,5 +11,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Railway sets $PORT dynamically — must use shell form (not exec form) to expand it
-CMD gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:8080", "--workers", "4", "--timeout", "120"]

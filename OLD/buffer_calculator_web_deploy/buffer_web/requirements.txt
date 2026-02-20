@@ -1,4 +1,3 @@
 flask>=3.0
 phreeqpython>=1.5.0
-scipy
 gunicorn>=21.0
