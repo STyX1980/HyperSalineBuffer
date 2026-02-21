@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hypersaline pH Buffer Calculator v2.01</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Calibri, sans-serif; font-size: 11pt; background: #f2f2f2; color: #000; }
+
+/* HEADER */
+.app-header { background: #fff; border-bottom: 2px solid #4472c4; padding: 10px 18px 8px; position: sticky; top: 0; z-index: 100; }
+.app-header h1 { font-size: 12pt; font-weight: bold; color: #1f3864; line-height: 1.35; }
+.app-header .affil { font-size: 9pt; color: #595959; margin-top: 3px; }
+.app-header .ver { font-size: 8.5pt; color: #7f7f7f; font-style: italic; margin-top: 1px; }
+
+/* LAYOUT */
+.workbook { display: grid; grid-template-columns: 388px 1fr; height: calc(100vh - 72px); overflow: hidden; }
+.sidebar { background: #fff; border-right: 1px solid #bfbfbf; overflow-y: auto; height: 100%; }
+
+/* SECTION HEADERS — thin border top+bottom like Excel */
+.xl-section { border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 3px 12px; margin-top: 10px; font-weight: bold; font-size: 10pt; color: #1f3864; }
+.xl-section:first-child { margin-top: 0; }
+
+/* INPUT ROWS */
+.xl-row { display: grid; grid-template-columns: 110px 82px 1fr; align-items: center; min-height: 22px; border-bottom: 1px solid #f0f0f0; padding: 0 12px; }
+.xl-row:hover { background: #f5f8ff; }
+.xl-row .lbl { font-size: 10pt; }
+.xl-row input, .xl-row select {
+  font-family: Calibri, sans-serif; font-size: 10pt;
+  border: 1px solid #bfbfbf; padding: 1px 5px;
+  width: 78px; height: 20px; border-radius: 0; outline: none; background: #fff;
+}
+.xl-row input:focus, .xl-row select:focus { border-color: #4472c4; background: #ebf3fb; }
+.xl-row input[readonly] { background: #f2f2f2; color: #595959; border-color: #d0d0d0; }
+.xl-row .unit { font-size: 9.5pt; color: #595959; padding-left: 5px; }
+/* TDS row: special 4-col layout */
+.xl-row.tds-row { grid-template-columns: 110px 82px 1fr; }
+.tds-inputs { display: flex; gap: 3px; align-items: center; }
+.tds-inputs input { width: 52px; }
+.tds-inputs select { width: 56px; font-size: 10pt; height: 20px; font-family: Calibri,sans-serif; border: 1px solid #bfbfbf; padding: 1px 2px; border-radius: 0; outline: none; background: #fff; }
+.tds-inputs select:focus { border-color: #4472c4; background: #ebf3fb; }
+/* Hydration rows */
+.xl-row.hyd { grid-template-columns: 110px 1fr; }
+.xl-row.hyd select { width: 200px; font-size: 10pt; }
+/* Header sub-row */
+.hdr-row { display: grid; grid-template-columns: 110px 82px 1fr; padding: 2px 12px; }
+.hdr-row span { font-size: 9pt; color: #7f7f7f; }
+
+/* RECIPE TABLE */
+.recipe-table { width: calc(100% - 24px); margin: 4px 12px 2px; border-collapse: collapse; font-size: 9.5pt; }
+.recipe-table th { background: #dce6f1; border: 1px solid #bfbfbf; padding: 2px 6px; font-weight: bold; color: #1f3864; text-align: left; }
+.recipe-table td { border: 1px solid #d9d9d9; padding: 2px 6px; }
+.recipe-table tbody tr:last-child td { background: #eaf1fb; font-weight: bold; }
+.num { text-align: right; }
+.recipe-note { font-size: 8.5pt; color: #7f7f7f; padding: 2px 12px 6px; font-style: italic; }
+
+/* RUN BUTTON */
+.run-btn { display: block; width: calc(100% - 24px); margin: 6px 12px 4px; padding: 6px 0; font-family: Calibri, sans-serif; font-size: 11pt; font-weight: bold; background: #1f3864; color: #fff; border: none; cursor: pointer; }
+.run-btn:hover { background: #2e54a0; }
+.run-btn.loading { background: #7f7f7f; cursor: wait; }
+
+/* DEBUG LINKS */
+.debug-links { padding: 4px 12px 10px; display: flex; gap: 12px; }
+.debug-links a { font-size: 8.5pt; color: #4472c4; text-decoration: none; }
+.debug-links a:hover { text-decoration: underline; }
+
+/* MAIN CONTENT */
+.main-content { padding: 12px 16px; background: #f2f2f2; overflow-y: auto; height: 100%; }
+.placeholder { background: #fff; border: 1px solid #bfbfbf; padding: 40px; text-align: center; color: #7f7f7f; font-style: italic; }
+.error-box { background: #fff2cc; border: 1px solid #bf8f00; padding: 10px 14px; white-space: pre-wrap; color: #7f3b00; font-size: 10pt; }
+
+/* STATS */
+
+/* Panel numbers */
+.panel-num { display:inline-block; background:#1f3864; color:#fff; font-size:9pt;
+  font-weight:bold; font-family:Calibri,sans-serif; width:18px; height:18px;
+  line-height:18px; text-align:center; margin-right:7px; flex-shrink:0; }
+
+
+/* CHARTS */
+.charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.chart-card { background: #fff; border: 1px solid #bfbfbf; padding: 10px 12px 8px; }
+.chart-title { font-size: 13pt; font-weight: bold; color: #1f3864; border-bottom: 1px solid #d9d9d9; padding-bottom: 5px; margin-bottom: 8px; }
+.chart-wrap { height: 290px; position: relative; }
+
+/* DATA TABLE */
+.data-card { background: #fff; border: 1px solid #bfbfbf; margin-bottom: 12px; }
+.data-card-title { background: #dce6f1; border-bottom: 1px solid #bfbfbf; padding: 5px 12px; font-size: 13pt; font-weight: bold; color: #1f3864; }
+.table-scroll { overflow-x: auto; max-height: 360px; overflow-y: auto; }
+table.data-table { width: 100%; border-collapse: collapse; font-size: 11pt; }
+table.data-table thead th { background: #dce6f1; border: 1px solid #bfbfbf; padding: 4px 10px; font-weight: bold; color: #1f3864; position: sticky; top: 0; text-align: left; font-size: 11pt; }
+table.data-table tbody td { border: 1px solid #d9d9d9; padding: 2px 6px; }
+table.data-table tbody tr:nth-child(even) td { background: #f2f7fc; }
+table.data-table tbody tr:hover td { background: #ebf3fb; }
+/* Editable mV column */
+table.data-table td.mv-cell input {
+  font-size: 11pt;
+  font-family: Calibri, sans-serif; font-size: 9.5pt;
+  border: none; background: transparent; width: 70px;
+  outline: none; color: #000;
+}
+table.data-table td.mv-cell input:focus {
+  background: #ebf3fb; border-bottom: 1px solid #4472c4;
+}
+table.data-table th.mv-head { background: #e2efda; color: #375623; }
+table.data-table td.mv-cell { background: #f2ffee !important; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="app-header">
+  <div class="h1">
+    <h1 style="font-size:15pt">A Simple, Field-Compatible Method for Accurate pH Measurement in Hypersaline Brines<br>
+    <span style="font-weight:normal;font-size:13pt">Paz Nativ, Gordon D.Z. Williams, Avner Vengosh</span></h1>
+  </div>
+  <div class="affil" style="font-size:11.5pt">Nicholas School of the Environment, Duke University</div>
+  <div class="ver" style="font-size:10.5pt">Hypersaline pH Custom Buffer Calculator v2.01 &nbsp;·&nbsp; Feb 2026 &nbsp;·&nbsp; Corresponding author: paznativ@gmail.com</div>
+</div>
+
+<div class="workbook">
+<div class="sidebar">
+
+  <!-- Sample composition -->
+  <div class="xl-section"><span class="panel-num">1</span>Sample composition</div>
+  <div class="hdr-row"><span></span><span>Concentration</span><span>Unit</span></div>
+  <div class="xl-row"><span class="lbl">Na</span><input type="number" id="Na" value="2000" step="any"><span class="unit">mg/L</span></div>
+  <div class="xl-row"><span class="lbl">K</span><input type="number" id="K" value="5000" step="any"><span class="unit">mg/L</span></div>
+  <div class="xl-row"><span class="lbl">Li</span><input type="number" id="Li" value="500" step="any"><span class="unit">mg/L</span></div>
+  <div class="xl-row"><span class="lbl">Mg</span><input type="number" id="Mg" value="20" step="any"><span class="unit">mg/L</span></div>
+  <div class="xl-row"><span class="lbl">Ca</span><input type="number" id="Ca" value="250" step="any"><span class="unit">mg/L</span></div>
+  <div class="xl-row"><span class="lbl">SO&#8324;</span><input type="number" id="SO4" value="50" step="any"><span class="unit">mg-S/L</span></div>
+  <div class="xl-row"><span class="lbl">B</span><input type="number" id="B" value="50" step="any"><span class="unit">mg/L</span></div>
+  <div class="xl-row"><span class="lbl">Br</span><input type="number" id="Br" value="7" step="any"><span class="unit">mg/L</span></div>
+  <div class="xl-row"><span class="lbl">Density</span><input type="number" id="density" value="1.3" step="0.001"><span class="unit">kgs/L</span></div>
+  <div class="xl-row tds-row">
+    <span class="lbl">TDS</span>
+    <div class="tds-inputs">
+      <input type="number" id="tds" value="350" step="any">
+      <select id="tds_unit"><option value="g/L" selected>g/L</option><option value="g/kgs">g/kgs</option></select>
+    </div>
+  </div>
+  <div class="xl-row"><span class="lbl">pH</span><input type="number" id="pH" value="8.5" step="0.1"></div>
+
+  <!-- Titration setup -->
+  <div class="xl-section"><span class="panel-num">2</span>Titration setup</div>
+  <div class="xl-row"><span class="lbl">H&#8323;BO&#8323;</span><input type="number" id="H3BO3_conc" value="0.4" step="0.01"><span class="unit">M</span></div>
+  <div class="xl-row"><span class="lbl">V(sample)</span><input type="number" id="sample_vol" value="50" step="1"><span class="unit">mL</span></div>
+  <div class="xl-row"><span class="lbl">V(H&#8323;BO&#8323;)</span><input type="number" id="H3BO3_vol" value="4" step="0.1"><span class="unit">mL</span></div>
+  <div class="xl-row"><span class="lbl">NaOH</span><input type="number" id="NaOH_conc" value="1" step="0.01"><span class="unit">M</span></div>
+  <div class="xl-row"><span class="lbl">V(NaOH)</span><input type="number" id="NaOH_vol" value="2" step="0.1"><span class="unit">mL</span></div>
+  <div class="xl-row"><span class="lbl">NaOH steps</span><input type="text" id="step_display" readonly><span class="unit">mL/step</span></div>
+
+  <!-- Salt hydration -->
+  <div class="xl-section"><span class="panel-num">3</span>Salt hydration state</div>
+  <div class="xl-row hyd"><span class="lbl">MgCl&#8322;</span><select id="hyd_MgCl2"><option value="Hexahydrate" selected>MgCl&#8322;&#183;6H&#8322;O (hexahydrate)</option><option value="Anhydrous">Anhydrous</option></select></div>
+  <div class="xl-row hyd"><span class="lbl">CaCl&#8322;</span><select id="hyd_CaCl2"><option value="Anhydrous" selected>Anhydrous</option><option value="Dihydrate">CaCl&#8322;&#183;2H&#8322;O (dihydrate)</option></select></div>
+  <div class="xl-row hyd"><span class="lbl">MgSO&#8324;</span><select id="hyd_MgSO4"><option value="Heptahydrate" selected>MgSO&#8324;&#183;7H&#8322;O (heptahydrate)</option><option value="Anhydrous">Anhydrous</option></select></div>
+  <div class="xl-row hyd"><span class="lbl">Na&#8322;SO&#8324;</span><select id="hyd_Na2SO4"><option value="Anhydrous" selected>Anhydrous</option><option value="Heptahydrate">Na&#8322;SO&#8324;&#183;10H&#8322;O (decahydrate)</option></select></div>
+
+  <!-- Salts reference table -->
+  <div class="xl-section"><span class="panel-num">4</span>Salts &mdash; molar masses</div>
+  <table class="recipe-table" style="margin-bottom:6px">
+    <thead>
+      <tr><th>Salt</th><th>Hydration state</th><th class="num">MW (g/mol)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>MgCl&#8322;</td><td>Anhydrous</td><td class="num">95.211</td></tr>
+      <tr><td>MgCl&#8322;&#183;6H&#8322;O</td><td>Hexahydrate</td><td class="num">203.302</td></tr>
+      <tr><td>CaCl&#8322;</td><td>Anhydrous</td><td class="num">110.984</td></tr>
+      <tr><td>CaCl&#8322;&#183;2H&#8322;O</td><td>Dihydrate</td><td class="num">147.015</td></tr>
+      <tr><td>LiCl</td><td>Anhydrous</td><td class="num">42.394</td></tr>
+      <tr><td>MgSO&#8324;</td><td>Anhydrous</td><td class="num">120.366</td></tr>
+      <tr><td>MgSO&#8324;&#183;7H&#8322;O</td><td>Heptahydrate</td><td class="num">246.472</td></tr>
+      <tr><td>NaCl</td><td>Anhydrous</td><td class="num">58.440</td></tr>
+      <tr><td>KCl</td><td>Anhydrous</td><td class="num">74.550</td></tr>
+      <tr><td>Na&#8322;SO&#8324;</td><td>Anhydrous</td><td class="num">142.040</td></tr>
+      <tr><td>Na&#8322;SO&#8324;&#183;10H&#8322;O</td><td>Decahydrate</td><td class="num">322.200</td></tr>
+      <tr style="background:#eaf1fb;font-weight:bold"><td>H&#8322;O</td><td>Liquid</td><td class="num">18.015</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Buffer recipe -->
+  <div class="xl-section"><span class="panel-num">5</span>Buffer recipe &mdash; per 1 kg H&#8322;O</div>
+  <table class="recipe-table">
+    <thead><tr><th>Salt</th><th class="num">mmol</th><th class="num">g</th></tr></thead>
+    <tbody id="recipeBody"><tr><td colspan="4" style="color:#7f7f7f;font-style:italic;padding:4px 6px">Enter inputs above&hellip;</td></tr></tbody>
+  </table>
+  <button class="run-btn" id="runBtn" onclick="runCalc()">&#9654;&#160; Run Simulation</button>
+
+  <div class="debug-links">
+    <a href="/show_input" target="_blank">View PHREEQC input string</a>
+    <a href="/show_output" target="_blank">View raw output rows</a>
+  </div>
+</div>
+
+<!-- MAIN PANEL -->
+<div class="main-content">
+  <!-- Charts — always in DOM so Chart.js can always find the canvases -->
+  <div class="charts-row" id="chartsRow" style="margin-bottom:12px">
+    <div class="chart-card">
+      <div class="chart-title"><span class="panel-num">8</span>B&#8324;/B&#8323; ratio vs. calculated pH</div>
+      <div class="chart-wrap"><canvas id="cB4B3"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title"><span class="panel-num">9</span>pH Titration Curve (V NaOH vs. calculated pH)</div>
+      <div class="chart-wrap"><canvas id="cPH"></canvas></div>
+    </div>
+  </div>
+  <div class="chart-card" id="calibCard" style="margin-bottom:12px">
+    <div class="chart-title"><span class="panel-num">7</span>pH Calibration &mdash; mV vs. calculated pH</div>
+    <div id="calibStats" style="text-align:center;font-size:12pt;font-family:Calibri,sans-serif;color:#1f3864;line-height:1.8;padding:2px 0 6px;min-height:1.8em"></div>
+    <div class="chart-wrap"><canvas id="cCalib"></canvas></div>
+  </div>
+  <div id="results">
+    <div class="placeholder">Configure inputs on the left and click <strong>Run Simulation</strong> to compute the titration curve and B&#8324;/B&#8323; ratio.</div>
+  </div>
+</div>
+</div>
+
+<script>
+// ── Global chart instances ────────────────────────────────────────────────────
+let chartB4B3 = null, chartPH = null, chartCalib = null;
+let _titrationRows = [];
+
+// ── Shared chart style constants ─────────────────────────────────────────────
+const AX = {
+  ticks:  { font:{family:'Calibri',size:12}, color:'#000', maxTicksLimit:8 },
+  grid:   { color:'#d9d9d9' },
+  border: { color:'#bfbfbf' },
+};
+const TITLE = {
+  display: true,
+  font: { family:'Calibri', size:16, weight:'bold' },
+  color: '#1f3864',
+  padding: { top:14, bottom:10 },
+};
+
+// ── Inside-ticks plugin ───────────────────────────────────────────────────────
+const insideTicks = {
+  id: 'insideTicks',
+  afterDraw(chart) {
+    const ctx = chart.ctx;
+    chart.scales && Object.values(chart.scales).forEach(scale => {
+      const tickCount = scale.ticks ? scale.ticks.length : 0;
+      if (!tickCount) return;
+      ctx.save();
+      ctx.strokeStyle = '#555';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < tickCount; i++) {
+        const px = scale.getPixelForTick(i);
+        if (isNaN(px)) continue;
+        ctx.beginPath();
+        if (scale.axis === 'x') {
+          ctx.moveTo(px, scale.top);
+          ctx.lineTo(px, scale.top + 5);
+        } else {
+          ctx.moveTo(scale.right, px);
+          ctx.lineTo(scale.right - 5, px);
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+    });
+  }
+};
+
+// ── Recipe inputs ─────────────────────────────────────────────────────────────
+const RECIPE_IDS = ['Na','K','Li','Mg','Ca','SO4','density','tds','tds_unit',
+                    'hyd_MgCl2','hyd_CaCl2','hyd_MgSO4','hyd_Na2SO4','NaOH_vol'];
+RECIPE_IDS.forEach(id => {
+  const el = document.getElementById(id);
+  if (el) { el.addEventListener('input', updateRecipe); el.addEventListener('change', updateRecipe); }
+});
+document.getElementById('NaOH_vol').addEventListener('input', () => {
+  document.getElementById('step_display').value =
+    ((parseFloat(document.getElementById('NaOH_vol').value)||0)/20).toFixed(4);
+});
+
+function buildPayload() {
+  const g = id => document.getElementById(id).value;
+  return {
+    Na:+g('Na'), K:+g('K'), Li:+g('Li'), Mg:+g('Mg'), Ca:+g('Ca'),
+    SO4:+g('SO4'), B:+g('B'), Br:+g('Br'),
+    density:+g('density'), tds:+g('tds'), tds_unit:g('tds_unit'), pH:+g('pH'),
+    H3BO3_conc:+g('H3BO3_conc'), sample_vol:+g('sample_vol'),
+    H3BO3_vol:+g('H3BO3_vol'), NaOH_conc:+g('NaOH_conc'), NaOH_vol:+g('NaOH_vol'),
+    hyd_MgCl2:g('hyd_MgCl2'), hyd_CaCl2:g('hyd_CaCl2'),
+    hyd_MgSO4:g('hyd_MgSO4'), hyd_Na2SO4:g('hyd_Na2SO4'),
+  };
+}
+
+// ── Live recipe ───────────────────────────────────────────────────────────────
+async function updateRecipe() {
+  document.getElementById('step_display').value =
+    ((parseFloat(document.getElementById('NaOH_vol').value)||0)/20).toFixed(4);
+  try {
+    const r = await fetch('/recipe',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify(buildPayload())});
+    const d = await r.json();
+    if (d.recipe) renderRecipe(d.recipe);
+  } catch(e) {}
+}
+
+function renderRecipe(recipe) {
+  const tb = document.getElementById('recipeBody');
+  tb.innerHTML = '';
+  const ORDER = ['MgCl₂','MgCl₂·6H₂O','CaCl₂','CaCl₂·2H₂O',
+                 'LiCl','MgSO₄','MgSO₄·7H₂O','NaCl','KCl',
+                 'Na₂SO₄','Na₂SO₄·10H₂O','H₂O'];
+  const entries = Object.entries(recipe);
+  const sorted = [
+    ...ORDER.filter(k => recipe[k] && k !== 'H₂O').map(k => [k, recipe[k]]),
+    ...entries.filter(([k]) => !ORDER.includes(k) && k !== 'H₂O'),
+    ...entries.filter(([k]) => k === 'H₂O'),
+  ];
+  for (const [salt, obj] of sorted) {
+    if (salt !== 'H₂O' && (obj.mmol === 0 || obj.mmol === null)) continue;
+    const isWater = salt === 'H₂O';
+    const bold = isWater ? 'font-weight:bold;background:#eaf1fb' : '';
+    const mmolStr = (obj.mmol != null) ? obj.mmol.toFixed(3) : '&mdash;';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td style="${bold}">${salt}</td><td class="num" style="${bold}">${mmolStr}</td><td class="num" style="${bold}">${obj.g.toFixed(3)}</td>`;
+    tb.appendChild(tr);
+  }
+}
+
+// ── Run simulation ────────────────────────────────────────────────────────────
+async function runCalc() {
+  const btn = document.getElementById('runBtn');
+  btn.classList.add('loading'); btn.textContent = 'Computing…';
+  try {
+    const r = await fetch('/calculate',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify(buildPayload())});
+    const d = await r.json();
+    if (d.error) renderError(d.error+(d.trace?'\n\n'+d.trace:''));
+    else renderResults(d);
+  } catch(e) { renderError('Network error: '+e.message); }
+  finally { btn.classList.remove('loading'); btn.textContent = '\u25B6\u00A0 Run Simulation'; }
+}
+
+function renderError(msg) {
+  document.getElementById('results').innerHTML =
+    '<div class="error-box"><strong>Error</strong>\n\n'+msg+'</div>';
+}
+
+// ── Render results ────────────────────────────────────────────────────────────
+function renderResults(data) {
+  const rows   = data.titration;
+  const pHs    = rows.map(r => r.pH);
+  const ratios = rows.map(r => r.B4B3);
+  const vols   = rows.map(r => r.V_NaOH);
+  _titrationRows = rows;
+
+  // Rebuild the results HTML (table only — charts are in permanent DOM elements)
+  document.getElementById('results').innerHTML = `
+    <div class="data-card">
+      <div class="data-card-title" style="display:flex;align-items:center;justify-content:space-between">
+        <span style="display:flex;align-items:center"><span class="panel-num">6</span>Titration Results &nbsp;<span id="ionicStrengthBadge" style="font-size:11pt;font-weight:normal;color:#595959"></span></span>
+        <button onclick="copyTable()" id="copyBtn"
+          style="font-family:Calibri,sans-serif;font-size:10pt;padding:3px 12px;
+                 background:#fff;border:1px solid #4472c4;color:#1f3864;cursor:pointer">
+          &#128203; Copy table
+        </button>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr>
+            <th>Step</th><th>V NaOH (mL)</th><th>Calculated pH</th>
+            <th>B&#8324;/B&#8323; ratio</th>
+            <th class="mv-head">Measured mV <span style="font-weight:normal;font-size:8pt">(user input)</span></th>
+          </tr></thead>
+          <tbody id="titBody"></tbody>
+        </table>
+      </div>
+    </div>`;
+
+  // Set ionic strength in title (element now exists in DOM)
+  const badge = document.getElementById('ionicStrengthBadge');
+  if (badge) {
+    badge.textContent = data.ionic_strength != null
+      ? '\u2014\u2002I = ' + data.ionic_strength.toFixed(4) + ' M'
+      : '';
+  }
+
+  // Fill table rows
+  const tb = document.getElementById('titBody');
+  rows.forEach((row, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      `<td>${i+1}</td>` +
+      `<td>${row.V_NaOH.toFixed(3)}</td>` +
+      `<td>${row.pH !== null ? row.pH.toFixed(4) : '&mdash;'}</td>` +
+      `<td>${row.B4B3.toFixed(6)}</td>` +
+      `<td class="mv-cell"><input type="text" inputmode="decimal" ` +
+        `placeholder="—" title="Step ${i+1}" data-row="${i}"></td>`;
+    tb.appendChild(tr);
+  });
+
+  // Wire mV inputs: Enter/arrows move between rows, no spinner
+  document.querySelectorAll('#titBody td.mv-cell input').forEach((inp, i, all) => {
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'ArrowDown' || e.key === 'Enter') {
+        e.preventDefault();
+        if (all[i+1]) all[i+1].focus();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (all[i-1]) all[i-1].focus();
+      }
+    });
+    inp.addEventListener('input', updateCalibChart);
+  });
+
+  // Rebuild the three charts with new data
+  buildChartB4B3(pHs, ratios);
+  buildChartPH(vols, pHs);
+  updateCalibChart();
+}
+
+// ── B4/B3 chart ───────────────────────────────────────────────────────────────
+function buildChartB4B3(pHs, ratios) {
+  Chart.getChart('cB4B3')?.destroy();
+  chartB4B3 = null;
+  chartB4B3 = new Chart(document.getElementById('cB4B3'), {
+    type: 'line',
+    plugins: [insideTicks],
+    data: { datasets: [{
+      data: pHs.map((x, i) => ({ x, y: ratios[i] })),
+      borderColor: '#1f3864', borderWidth: 1.5,
+      pointRadius: 5, pointStyle: 'circle',
+      pointBackgroundColor: '#fff', pointBorderColor: '#1f3864', pointBorderWidth: 1.5,
+      tension: 0, fill: false, showLine: true,
+    }]},
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { type:'linear', min:3, max:11, title:{...TITLE, text:'Calculated pH'}, ...AX },
+        y: { min:0.5, max:1.5, title:{...TITLE, text:'B₄/B₃ ratio'}, ...AX },
+      }
+    }
+  });
+}
+
+// ── pH titration chart ────────────────────────────────────────────────────────
+function buildChartPH(vols, pHs) {
+  Chart.getChart('cPH')?.destroy();
+  chartPH = null;
+  chartPH = new Chart(document.getElementById('cPH'), {
+    type: 'line',
+    plugins: [insideTicks],
+    data: { datasets: [{
+      data: vols.map((x, i) => ({ x, y: pHs[i] })),
+      borderColor: '#4472c4', borderWidth: 1.5,
+      pointRadius: 5, pointStyle: 'circle',
+      pointBackgroundColor: '#fff', pointBorderColor: '#4472c4', pointBorderWidth: 1.5,
+      tension: 0, fill: false, showLine: true,
+    }]},
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { type:'linear', title:{...TITLE, text:'V NaOH (mL)'}, ...AX },
+        y: { title:{...TITLE, text:'Calculated pH'}, ...AX },
+      }
+    }
+  });
+}
+
+// ── Calibration chart (always in DOM) ────────────────────────────────────────
+function initCalibChart() {
+  if (chartCalib) return;
+  Chart.getChart('cCalib')?.destroy();
+  chartCalib = new Chart(document.getElementById('cCalib'), {
+    type: 'line',
+    plugins: [insideTicks],
+    data: { datasets: [] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      scales: {
+        x: { type:'linear', title:{...TITLE, text:'Measured mV'}, ...AX },
+        y: { title:{...TITLE, text:'Calculated pH'}, ...AX },
+      }
+    }
+  });
+}
+
+function updateCalibChart() {
+  if (!_titrationRows.length) return;
+  if (!chartCalib) { Chart.getChart('cCalib')?.destroy(); initCalibChart(); }
+
+  // Find row with B4/B3 closest to 1.0
+  let bestIdx = 0, bestDist = Infinity;
+  _titrationRows.forEach((r, i) => {
+    const d = Math.abs(r.B4B3 - 1.0);
+    if (d < bestDist) { bestDist = d; bestIdx = i; }
+  });
+
+  // ±2 rows clamped
+  const lo = Math.max(0, bestIdx - 2);
+  const hi = Math.min(_titrationRows.length - 1, bestIdx + 2);
+
+  // Collect mV values
+  const inputs = document.querySelectorAll('#titBody td.mv-cell input');
+  const points = [];
+  for (let wi = lo; wi <= hi; wi++) {
+    const row = _titrationRows[wi];
+    const inp = inputs[wi];
+    const mv  = inp ? parseFloat(inp.value) : NaN;
+    if (!isNaN(mv) && row.pH !== null) {
+      points.push({ x: mv, y: row.pH, b4b3: row.B4B3, step: wi + 1 });
+    }
+  }
+
+  if (points.length < 2) {
+    chartCalib.data.datasets = [];
+    chartCalib.update();
+    document.getElementById('calibStats').textContent = '';
+    return;
+  }
+
+  // Linear regression
+  const n     = points.length;
+  const sumX  = points.reduce((s,p) => s+p.x, 0);
+  const sumY  = points.reduce((s,p) => s+p.y, 0);
+  const sumXY = points.reduce((s,p) => s+p.x*p.y, 0);
+  const sumX2 = points.reduce((s,p) => s+p.x*p.x, 0);
+  const denom = n*sumX2 - sumX*sumX;
+  if (Math.abs(denom) < 1e-12) return;
+  const slope     = (n*sumXY - sumX*sumY) / denom;
+  const intercept = (sumY - slope*sumX) / n;
+  const yMean = sumY/n;
+  const ssTot = points.reduce((s,p) => s+Math.pow(p.y-yMean,2), 0);
+  const ssRes = points.reduce((s,p) => s+Math.pow(p.y-(slope*p.x+intercept),2), 0);
+  const r2    = ssTot < 1e-12 ? 1 : 1 - ssRes/ssTot;
+
+  // Regression line
+  const xVals  = points.map(p=>p.x);
+  const xMin   = Math.min(...xVals), xMax = Math.max(...xVals);
+  const mg     = (xMax-xMin)*0.15 || 5;
+  const regLine = [
+    { x:xMin-mg, y:slope*(xMin-mg)+intercept },
+    { x:xMax+mg, y:slope*(xMax+mg)+intercept },
+  ];
+
+  // Stats display
+  const sign = intercept >= 0 ? '+' : '';
+  document.getElementById('calibStats').innerHTML =
+    'y = ' + slope.toFixed(5) + 'x ' + sign + intercept.toFixed(4) +
+    '<br>R² = ' + r2.toFixed(5);
+
+  // Update chart
+  chartCalib.data.datasets = [
+    {
+      type:'line', label:'Regression', data:regLine,
+      borderColor:'#c00000', borderWidth:1.5, borderDash:[5,4],
+      pointRadius:0, tension:0, fill:false, order:2,
+    },
+    {
+      type:'line', label:'Data', data:points,
+      showLine:false, fill:false,
+      pointStyle:'circle', pointRadius:6, pointHoverRadius:8,
+      pointBackgroundColor:'#fff', pointBorderColor:'#1f3864', pointBorderWidth:1.5,
+      order:1,
+    },
+  ];
+  chartCalib.options.plugins.tooltip = {
+    callbacks: {
+      label: ctx => {
+        const p = ctx.raw;
+        if (p.b4b3 !== undefined)
+          return 'Step '+p.step+': mV='+p.x.toFixed(1)+
+                 ', pH='+p.y.toFixed(4)+', B₄/B₃='+p.b4b3.toFixed(4);
+        return 'mV='+p.x.toFixed(2)+', pH='+p.y.toFixed(4);
+      }
+    }
+  };
+  chartCalib.update();
+}
+
+// ── Init on load ──────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('step_display').value =
+    ((parseFloat(document.getElementById('NaOH_vol').value)||0)/20).toFixed(4);
+  updateRecipe();
+  initCalibChart();
+});
+
+// ── Copy table to clipboard ───────────────────────────────────────────────────
+function copyTable() {
+  const headers = ['Step', 'V NaOH (mL)', 'Calculated pH', 'B4/B3 ratio', 'Measured mV'];
+  const rows = document.querySelectorAll('#titBody tr');
+  if (!rows.length) return;
+  const lines = [headers.join('\t')];
+  rows.forEach(tr => {
+    const cells = tr.querySelectorAll('td');
+    const line = [];
+    cells.forEach((td, i) => {
+      if (i < 4) {
+        line.push(td.textContent.trim());
+      } else {
+        const inp = td.querySelector('input');
+        line.push(inp ? (inp.value || '') : '');
+      }
+    });
+    lines.push(line.join('\t'));
+  });
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = '\u2713 Copied!';
+    btn.style.background = '#e2efda';
+    btn.style.borderColor = '#70ad47';
+    btn.style.color = '#375623';
+    setTimeout(() => {
+      btn.innerHTML = '&#128203; Copy table';
+      btn.style.background = '#fff';
+      btn.style.borderColor = '#4472c4';
+      btn.style.color = '#1f3864';
+    }, 2000);
+  }).catch(() => { alert('Copy failed — please select and copy manually.'); });
+}
+
+</script>
+
+</body>
+</html>
